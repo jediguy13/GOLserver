@@ -1,11 +1,11 @@
 import socket
 
 #you can change these in your own code
-HOST,PORT = "0.0.0.0",31337
+HOST,PORT = "localhost",31337
 SIZE=1024
 
 #same error class from server script
-class GameError:
+class GameError(BaseException):
     def __init__(self, value):
         self.value = value
     def __str__(self):
@@ -13,14 +13,15 @@ class GameError:
 
 #raw tlv methods, in case you need to use them
 def sendtlv(sock,tid,tstr):
-    s = "{}{}".format(tid,chr(len(tstr))) + tstr
+    s = bytes("{}{}".format(tid,chr(len(tstr))) + tstr,"utf-8")
     sock.sendall(s)
 
 def gettlv(tlv):
+    tlv = str(tlv,"utf-8")
     tid = tlv[0]
     leng = ord(tlv[1])
-    if not leng == len(tlv[2:]):
-        raise GameError("tlv length doesn't match")
+    #if not leng == len(tlv[2:]):
+     #   raise GameError("tlv length doesn't match")
     text = tlv[2:]
     return tid,text
 
@@ -38,7 +39,7 @@ class Robot:
         sendtlv(self.sock,'I',self.ID)
         i,player = gettlv(self.sock.recv(1024))
         if i=='S':
-            self.player = player
+            self.player = player[0]
         else:
             raise GameError("Server did not respond with player number")
 
@@ -75,7 +76,13 @@ class Robot:
         newboard = [[0 for i in range(SIZE)] for i in range(SIZE)]
         for x in range(SIZE):
             for y in range(SIZE):
-                neighbors = [board[x-1][y-1],board[x][y-1],board[x+1][y-1],board[x-1][y],board[x+1][y],board[x-1][y+1],board[x][y+1],board[x+1][y+1]]
+                neighbors = []
+                for a in range(-1,2):
+                    for b in range(-1,2):
+                        if a!=0 or b!=0:
+                            neighbors.append(self.getcell(x+a,y+b))
+                #would fail when checking edge cells
+                #neighbors = [board[x-1][y-1],board[x][y-1],board[x+1][y-1],board[x-1][y],board[x+1][y],board[x-1][y+1],board[x][y+1],board[x+1][y+1]]
                 p1neighbors = sum([1 if c==1 else 0 for c in neighbors])
                 p2neighbors = sum([1 if c==2 else 0 for c in neighbors])
                 if board[x][y] == 0:
@@ -117,7 +124,7 @@ class Robot:
     def act_on_response(self):
         i,text = self.get_response()
         if i is 'M':
-            self.apply_moves(get_moves(text),self.board,(3-self.player))
+            self.apply_moves(self.get_moves(text),self.board,2)
             return i,self.board
         if i is 'G':
             self.step()
@@ -126,6 +133,7 @@ class Robot:
             return i,2
         if i is 'B':
             self.sock.detach()
-            return i,0
+            print(text)
+            return i,text
 
     

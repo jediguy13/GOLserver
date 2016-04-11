@@ -2,7 +2,7 @@
 ## wish me luck
 
 # server listen address
-HOST="0.0.0.0"
+HOST="localhost"
 PORT=31337
 
 # for later
@@ -30,7 +30,7 @@ if not os.path.exists(DATABASE):
     conn.commit()
     conn.close()
 
-class GameError:
+class GameError(BaseException):
     def __init__(self, value):
         self.value = value
     def __str__(self):
@@ -66,21 +66,23 @@ def getmoves(tlv):
 """
 
 def sendtlv(sock,tid,tstr):
-    s = "{}{}".format(tid,chr(len(tstr))) + tstr
+    s = bytes("{}{}".format(tid,chr(len(tstr))) + tstr,"utf-8")
     sock.sendall(s)
 
 def gettlv(tlv):
+    tlv = str(tlv,"utf-8")
     tid = tlv[0]
     leng = ord(tlv[1])
-    if not leng == len(tlv[2:]):
-        raise GameError("tlv length doesn't match")
+    #if not leng == len(tlv[2:]):
+    #    raise GameError("tlv length doesn't match")
     text = tlv[2:]
     return tid,text
 
 def getmoves(tlv):
+    tlv = str(tlv,"utf-8")
     leng = ord(tlv[1])
-    if not leng == len(tlv[2:]):
-        raise GameError("tlv move length doesn't match")
+    #if not leng == len(tlv[2:]):
+     #   raise GameError("tlv move length doesn't match")
     movs = [(ord(tlv[i]) + 256*ord(tlv[i+1]),ord(tlv[i+2]) + 256*ord(tlv[i+3])) for i in range(2,len(tlv),4)]
     return movs
 
@@ -88,7 +90,13 @@ def iterlife(board):
     newboard = [[0 for i in range(SIZE)] for i in range(SIZE)]
     for x in range(SIZE):
         for y in range(SIZE):
-            neighbors = [board[x-1][y-1],board[x][y-1],board[x+1][y-1],board[x-1][y],board[x+1][y],board[x-1][y+1],board[x][y+1],board[x+1][y+1]]
+            neighbors = []
+            for a in range(-1,2):
+                for b in range(-1,2):
+                    if a!=0 or b!=0:
+                        neighbors.append(getcell(board,x+a,y+b))
+            #would fail when checking edge cells
+            #neighbors = [board[x-1][y-1],board[x][y-1],board[x+1][y-1],board[x-1][y],board[x+1][y],board[x-1][y+1],board[x][y+1],board[x+1][y+1]]
             p1neighbors = sum([1 if c==1 else 0 for c in neighbors])
             p2neighbors = sum([1 if c==2 else 0 for c in neighbors])
             if board[x][y] == 0:
@@ -130,9 +138,11 @@ def rungame(opp1,opp2):
     time.sleep(1)
     i,p1name = gettlv(opp1.recv(1024))
     if not i == 'I':
+        print(i)
         raise GameError("player 1 didn't identify properly")
     i,p2name = gettlv(opp2.recv(1024))
     if not i == 'I':
+        print(i)
         raise GameError("player 2 didn't identify properly")
     board = [[0 for i in range(SIZE)] for i in range(SIZE)]
     playing = True ## no win conditions that i've seen
@@ -142,8 +152,8 @@ def rungame(opp1,opp2):
     starttime = time.time()
     print("variables set up")
     print("now starting {} vs. {}".format(p1name,p2name))
-    sendtlv(opp1,'S',p2name)
-    sendtlv(opp2,'S',p1name)
+    sendtlv(opp1,'S',chr(1))
+    sendtlv(opp2,'S',chr(2))
     while playing:
         board = iterlife(board)
         sendtlv(opp1,'G','')
@@ -216,9 +226,9 @@ def main():
     print("socket init complete")
     while True:
         a,addr = s.accept()
-        print("accepted connection from " + addr + " (1/2)")
+        print("accepted connection from " + str(addr) + " (1/2)")
         b,addr = s.accept()
-        print("accepted connection from " + addr + " (2/2)")
+        print("accepted connection from " + str(addr) + " (2/2)")
         print("starting...")
         rungame(a,b)
 
