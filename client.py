@@ -2,7 +2,7 @@ import socket
 
 #you can change these in your own code
 HOST,PORT = "localhost",31337
-SIZE=1024
+SIZE=100
 
 #same error class from server script
 class GameError(BaseException):
@@ -13,16 +13,22 @@ class GameError(BaseException):
 
 #raw tlv methods, in case you need to use them
 def sendtlv(sock,tid,tstr):
+    print("send")
+    print(ord(tid))
+    print([ord(t) for t in tstr])
     s = bytes("{}{}".format(tid,chr(len(tstr))) + tstr,"utf-8")
     sock.sendall(s)
 
 def gettlv(tlv):
+    print("get")
     tlv = str(tlv,"utf-8")
+    print([ord(t) for t in tlv])
+    print(len(tlv[2:]))
     tid = tlv[0]
     leng = ord(tlv[1])
     #if not leng == len(tlv[2:]):
-     #   raise GameError("tlv length doesn't match")
-    text = tlv[2:]
+    #   raise GameError("tlv length doesn't match")
+    text = tlv[2:2+leng]
     return tid,text
 
 #A lot of the methods in this class are borrowed from the server script
@@ -65,8 +71,8 @@ class Robot:
     #gets moves from text part of tlv
     #returns same format as above
     def get_moves(self,tlv):
-        if(len(tlv)%4!=0):
-            raise GameError("Input moves are not the right length")
+        #if(len(tlv)%4!=0):
+         #   raise GameError("Input moves are not the right length")
         movs = [(ord(tlv[i]) + 256*ord(tlv[i+1]),ord(tlv[i+2]) + 256*ord(tlv[i+3])) for i in range(0,len(tlv),4)]
         return movs
 
@@ -126,14 +132,16 @@ class Robot:
         if i is 'M':
             self.apply_moves(self.get_moves(text),self.board,2)
             return i,self.board
-        if i is 'G':
+        elif i is 'G':
             self.step()
             return i,1
-        if i is 'T':
+        elif i is 'T':
             return i,2
-        if i is 'B':
+        elif i is 'B':
             self.sock.detach()
             print(text)
             return i,text
+        else:
+            return i,False
 
     

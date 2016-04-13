@@ -11,9 +11,10 @@ VISUALIZERPORT=12003
 
 # storage (sqlite3)
 DATABASE="golkoth.db"
+DEBUG = False
 
-SIZE=1024  ## side length
-LENGTH=3000 # round time in seconds
+SIZE=100  ## side length
+LENGTH=300#0 # round time in seconds
 ## on the board: 0 = off, 1 = player1, 2 = player2, 3 = neither??
                                 # should it be both? Unclear from question...
 
@@ -66,23 +67,35 @@ def getmoves(tlv):
 """
 
 def sendtlv(sock,tid,tstr):
+    if DEBUG:
+        print("send")
+        print(ord(tid))
+        print([ord(t) for t in tstr])
     s = bytes("{}{}".format(tid,chr(len(tstr))) + tstr,"utf-8")
     sock.sendall(s)
 
 def gettlv(tlv):
     tlv = str(tlv,"utf-8")
+    if DEBUG:
+        print("get")
+        print([ord(t) for t in tlv])
+        print(len(tlv[2:]))
     tid = tlv[0]
     leng = ord(tlv[1])
-    #if not leng == len(tlv[2:]):
-    #    raise GameError("tlv length doesn't match")
+    if not leng == len(tlv[2:]):
+        raise GameError("tlv length doesn't match")
     text = tlv[2:]
     return tid,text
 
 def getmoves(tlv):
     tlv = str(tlv,"utf-8")
+    if DEBUG:
+        print("get")
+        print([ord(t) for t in tlv])
+        print(len(tlv[2:]))
     leng = ord(tlv[1])
-    #if not leng == len(tlv[2:]):
-     #   raise GameError("tlv move length doesn't match")
+    if not leng == len(tlv[2:]):
+       raise GameError("tlv move length doesn't match")
     movs = [(ord(tlv[i]) + 256*ord(tlv[i+1]),ord(tlv[i+2]) + 256*ord(tlv[i+3])) for i in range(2,len(tlv),4)]
     return movs
 
@@ -214,9 +227,11 @@ def rungame(opp1,opp2):
     conn = sqlite3.connect(DATABASE)
     c = conn.cursor()
     #                        (player1 text, player2 text, p1score int, p2score int, winner int)
-    c.execute("INSERT INTO rounds VALUES ?,?,?,?,?",(p1name,p2name,p1score,p2score,win))
+    c.executemany('INSERT INTO rounds VALUES (?,?,?,?,?)',(p1name,p2name,p1score,p2score,win))
     conn.commit()
     conn.close()
+    opp1.close()
+    opp2.close()
 
 def main():
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
